@@ -103,11 +103,8 @@ function updateMapMarkers() {
     markerLayer.clearLayers();
     if (savedPoints.length === 0) return;
     
-    let latLngs = [];
     savedPoints.forEach(p => {
         const pos = [p.lat, p.lng];
-        latLngs.push(pos);
-        
         L.marker(pos)
             .addTo(markerLayer)
             .bindPopup('<b>Zeit:</b> ' + p.time + '<br><b>Tiefe:</b> ' + p.depth + 'm')
@@ -119,8 +116,15 @@ function updateMapMarkers() {
             });
     });
     
-    const bounds = L.latLngBounds(latLngs);
-    map.fitBounds(bounds, { padding: [30, 30] });
+    // AUSFALLSICHER: Nutzt die eingebaute Funktion ohne fehleranfällige Padding-Klammern
+    try {
+        const bounds = markerLayer.getBounds();
+        if (bounds && bounds.isValid()) {
+            map.fitBounds(bounds);
+        }
+    } catch(e) {
+        console.log("Zoom-Fehler abgefangen");
+    }
 }
 
 function updateTable() {
@@ -181,7 +185,7 @@ saveBtn.addEventListener('click', function() {
     
     updateTable();
     
-    // Zwingt die Karte, die Größe neu zu berechnen und die Marker direkt live zu plotten
+    // Karte aufwecken und sofort mit den neuen Markern synchronisieren
     map.invalidateSize();
     updateMapMarkers();
     
