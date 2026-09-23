@@ -2,207 +2,218 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gewässer-Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gewässer-Tracker (iOS Ready)</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 15px; background: #f4f7f6; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        h1 { margin-top: 0; font-size: 1.5rem; color: #00539C; text-align: center; }
-        button { background: #00539C; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 10px; -webkit-tap-highlight-color: transparent; }
-        button:active { background: #003F77; }
-        button.secondary { background: #2e7d32; }
-        button.secondary:active { background: #1b5e20; }
-        button.danger { background: #c62828; }
-        button.danger:active { background: #8e1c1c; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
-        .status { font-weight: bold; margin: 10px 0; padding: 10px; border-radius: 6px; font-size: 0.9rem; text-align: center; }
-        .success { background: #e8f5e9; color: #2e7d32; }
-        .error { background: #ffebee; color: #c62828; }
-        .info { background: #e3f2fd; color: #1565c0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .help-box { background: #fffde7; border-left: 4px solid #fbc02d; padding: 12px; border-radius: 4px; font-size: 0.85rem; line-height: 1.4; margin-top: 15px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 15px; background: #f0f2f5; color: #333; margin: 0; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        h1 { margin-top: 0; color: #007aff; font-size: 24px; text-align: center; }
+        button { background: #007aff; color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; -webkit-tap-highlight-color: transparent; }
+        button:active { background: #0056b3; }
+        .btn-secondary { background: #34c759; }
+        .btn-secondary:active { background: #248a3d; }
+        .btn-danger { background: #ff3b30; }
+        .btn-danger:active { background: #c61a09; }
+        input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 15px; }
+        .status { padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: bold; background: #e5e5ea; }
+        .error { background: #ffdee2; color: #ff3b30; border: 1px solid #ff3b30; }
+        .success { background: #e3ffd9; color: #34c759; border: 1px solid #34c759; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+        th { background: #f2f2f7; font-weight: 600; }
+        .flex-buttons { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h1>📍 Gewässer-Tracker</h1>
-        <div id="status" class="status info">Bereit zum Erfassen</div>
-        
-        <button onclick="getGPSLocation()">1. GPS-Position erfassen</button>
-        
-        <div style="margin-top: 15px;">
-            <p><strong>Breitengrad (Lat):</strong> <span id="lat">-</span></p>
-            <p><strong>Längengrad (Lng):</strong> <span id="lng">-</span></p>
-            <p><strong>Genauigkeit:</strong> <span id="acc">-</span></p>
-        </div>
+<div class="card">
+    <h1>📍 Gewässer-Tracker</h1>
+    <div id="statusBar" class="status">Bereit zum Erfassen</div>
+    
+    <button id="gpsBtn">1. GPS-Position erfassen</button>
+    
+    <div style="margin: 15px 0; line-height: 1.6;">
+        <strong>Breitengrad (Lat):</strong> <span id="latText">-</span><br>
+        <strong>Längengrad (Lng):</strong> <span id="lngText">-</span><br>
+        <strong>Genauigkeit:</strong> <span id="accText">-</span>
     </div>
 
-    <div class="card">
-        <label for="depth"><strong>2. Wassertiefe (in Metern):</strong></label>
-        <input type="number" id="depth" step="0.1" placeholder="z.B. 3.5" pattern="[0-9]*" inputmode="decimal">
-        
-        <button class="secondary" onclick="savePoint()">3. Punkt speichern</button>
+    <label for="depthInput"><strong>2. Wassertiefe (in Metern):</strong></label>
+    <input type="number" id="depthInput" step="0.1" placeholder="z.B. 4.5" pattern="[0-9]*" inputmode="decimal">
+
+    <button id="saveBtn" class="btn-secondary" disabled>3. Punkt speichern</button>
+</div>
+
+<div class="card">
+    <h3>Gespeicherte Punkte (<span id="countText">0</span>)</h3>
+    <div class="flex-buttons">
+        <button id="exportBtn" style="background: #5856d6;">📊 Als CSV exportieren</button>
+        <button id="clearBtn" class="btn-danger">⚠️ Alle löschen</button>
     </div>
-
-    <div class="card">
-        <h2>Gespeicherte Punkte (<span id="count">0</span>)</h2>
-        <button onclick="exportCSV()">📊 Als CSV exportieren</button>
-        <button class="danger" style="margin-top: 20px; padding: 8px; font-size: 0.8rem;" onclick="clearData()">⚠️ Alle Daten löschen</button>
-        
-        <div style="overflow-x:auto;">
-            <table id="pointsTable">
-                <thead>
-                    <tr>
-                        <th>Zeit</th>
-                        <th>Lat</th>
-                        <th>Lng</th>
-                        <th>Tiefe (m)</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
+    
+    <div style="overflow-x:auto;">
+        <table id="pointsTable">
+            <thead>
+                <tr>
+                    <th>Zeit</th>
+                    <th>Lat</th>
+                    <th>Lng</th>
+                    <th>Tiefe (m)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
+</div>
 
-    <div class="help-box">
-        <strong>💡 iPhone GPS-Probleme?</strong><br>
-        Wenn "Geolocation error" oder gar nichts passiert, liegt das an den iOS-Sicherheitsregeln. Safari blockiert GPS für lokale Dateien (file://). <br><br>
-        <strong>Lösung:</strong> Lade diese Datei auf einen Webserver hoch oder nutze einen lokalen Server-Simulanten (wie die App "Documents von Readdle"), damit die Adresse oben mit <code>http://</code> statt <code>file://</code> beginnt! Ensure HTTPS is used on live websites.
-    </div>
+<script>
+let currentLat = null;
+let currentLng = null;
+let savedPoints = JSON.parse(localStorage.getItem('fishMapPoints')) || [];
 
-    <script>
-        let currentLat = null;
-        let currentLng = null;
-        let currentAcc = null;
+const statusBar = document.getElementById('statusBar');
+const latText = document.getElementById('latText');
+const lngText = document.getElementById('lngText');
+const accText = document.getElementById('accText');
+const depthInput = document.getElementById('depthInput');
+const gpsBtn = document.getElementById('gpsBtn');
+const saveBtn = document.getElementById('saveBtn');
+const exportBtn = document.getElementById('exportBtn');
+const clearBtn = document.getElementById('clearBtn');
+const pointsTable = document.getElementById('pointsTable').getElementsByTagName('tbody')[0];
+const countText = document.getElementById('countText');
 
-        function updateStatus(text, type) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.innerText = text;
-            statusDiv.className = 'status ' + type;
-        }
+function updateTable() {
+    pointsTable.innerHTML = '';
+    countText.innerText = savedPoints.length;
+    savedPoints.forEach(p => {
+        let row = pointsTable.insertRow(0);
+        row.insertCell(0).innerText = p.time;
+        row.insertCell(1).innerText = p.lat.toFixed(5);
+        row.insertCell(2).innerText = p.lng.toFixed(5);
+        row.insertCell(3).innerText = p.depth + 'm';
+    });
+}
 
-        function getGPSLocation() {
-            updateStatus("Suche Satelliten... Bitte warten...", "info");
+// Direkter Klick-Event-Handler für iOS Kompatibilität
+gpsBtn.addEventListener('click', function() {
+    statusBar.className = "status";
+    statusBar.innerText = "Suche Satelliten... Bitte warten...";
+    
+    if (!navigator.geolocation) {
+        statusBar.className = "status error";
+        statusBar.innerText = "Fehler: Geolocation wird nicht unterstützt!";
+        return;
+    }
+
+    const options = {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+    };
+
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            currentLat = position.coords.latitude;
+            currentLng = position.coords.longitude;
             
-            if (!navigator.geolocation) {
-                updateStatus("❌ GPS wird von diesem Browser nicht unterstützt.", "error");
-                return;
-            }
-
-            const options = {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0
-            };
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    currentLat = position.coords.latitude;
-                    currentLng = position.coords.longitude;
-                    currentAcc = position.coords.accuracy ? position.coords.accuracy.toFixed(1) + " m" : "unbekannt";
-
-                    document.getElementById('lat').innerText = currentLat.toFixed(6);
-                    document.getElementById('lng').innerText = currentLng.toFixed(6);
-                    document.getElementById('acc').innerText = currentAcc;
-
-                    updateStatus("✅ Position erfolgreich erfasst!", "success");
-                },
-                (error) => {
-                    console.error(error);
-                    let errorMsg = "Fehler beim GPS-Abruf.";
-                    if (error.code === 1) errorMsg = "❌ Zugriff verweigert! Bitte GPS-Rechte in den iPhone-Einstellungen für Safari freigeben.";
-                    if (error.code === 2) errorMsg = "❌ Position nicht verfügbar (Kein GPS-Signal).";
-                    if (error.code === 3) errorMsg = "❌ Zeitüberschreitung beim Suchen des GPS-Signals.";
-                    
-                    updateStatus(errorMsg + " (Code " + error.code + ")", "error");
-                },
-                options
-            );
-        }
-
-        function savePoint() {
-            if (currentLat === null || currentLng === null) {
-                alert("Bitte erfasst zuerst die GPS-Position (Schritt 1)!");
-                return;
-            }
-
-            const depthInput = document.getElementById('depth');
-            const depth = depthInput.value;
-
-            if (!depth || isNaN(depth)) {
-                alert("Bitte gib eine gültige Wassertiefe ein!");
-                return;
-            }
-
-            const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-            const newPoint = {
-                time: timestamp,
-                lat: currentLat,
-                lng: currentLng,
-                depth: parseFloat(depth)
-            };
-
-            let points = JSON.parse(localStorage.getItem('water_points')) || [];
-            points.push(newPoint);
-            localStorage.setItem('water_points', JSON.stringify(points));
-
-            depthInput.value = '';
-            updateTable();
-            updateStatus("💾 Punkt erfolgreich gespeichert!", "success");
-        }
-
-        function updateTable() {
-            const points = JSON.parse(localStorage.getItem('water_points')) || [];
-            document.getElementById('count').innerText = points.length;
+            latText.innerText = currentLat.toFixed(6);
+            lngText.innerText = currentLng.toFixed(6);
+            accText.innerText = "+/- " + Math.round(position.coords.accuracy) + " Meter";
             
-            const tbody = document.querySelector('#pointsTable tbody');
-            tbody.innerHTML = '';
-
-            // Zeige die letzten 5 Punkte in der Tabelle an
-            points.slice().reverse().forEach(p => {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td>${p.time}</td><td>${p.lat.toFixed(5)}</td><td>${p.lng.toFixed(5)}</td><td>${p.depth} m</td>`;
-                tbody.appendChild(row);
-            });
-        }
-
-        function exportCSV() {
-            const points = JSON.parse(localStorage.getItem('water_points')) || [];
-            if (points.length === 0) {
-                alert("Keine Daten zum Exportieren vorhanden!");
-                return;
+            statusBar.className = "status success";
+            statusBar.innerText = "Position erfolgreich erfasst!";
+            saveBtn.disabled = false;
+            depthInput.focus();
+        },
+        function(error) {
+            statusBar.className = "status error";
+            if (error.code === 1) {
+                statusBar.innerText = "Fehler 1: Zugriff verweigert! Prüfe iPhone Einstellungen.";
+            } else if (error.code === 2) {
+                statusBar.innerText = "Fehler 2: Position nicht verfügbar (Kein GPS Signal).";
+            } else if (error.code === 3) {
+                statusBar.innerText = "Fehler 3: Zeitüberschreitung. Bitte nochmals versuchen.";
+            } else {
+                statusBar.innerText = "Fehler: " + error.message;
             }
+        },
+        options
+    );
+});
 
-            let csvContent = "data:text/csv;charset=utf-8,Zeit,Breitengrad_Lat,Laengengrad_Lng,Wassertiefe_m
-";
-            
-            points.forEach(p => {
-                csvContent += `${p.time},${p.lat},${p.lng},${p.depth}
-`;
-            });
+saveBtn.addEventListener('click', function() {
+    const depth = depthInput.value.trim();
+    if (!depth || isNaN(depth)) {
+        alert("Bitte trage eine gültige Wassertiefe ein!");
+        return;
+    }
+    
+    if (currentLat === null || currentLng === null) {
+        alert("Bitte zuerst die GPS Position erfassen!");
+        return;
+    }
 
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "gewaesser_daten.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 
-        function clearData() {
-            if (confirm("Möchtest du wirklich ALLE gespeicherten Punkte unwiderruflich löschen?")) {
-                localStorage.removeItem('water_points');
-                updateTable();
-                updateStatus("🗑️ Alle Daten gelöscht.", "info");
-            }
-        }
+    const point = {
+        time: timeStr,
+        lat: currentLat,
+        lng: currentLng,
+        depth: depth
+    };
 
-        // Initialisiere Tabelle beim Start
-        window.onload = updateTable;
-    </script>
+    savedPoints.push(point);
+    localStorage.setItem('fishMapPoints', JSON.stringify(savedPoints));
+    
+    updateTable();
+    
+    depthInput.value = '';
+    saveBtn.disabled = true;
+    latText.innerText = '-';
+    lngText.innerText = '-';
+    accText.innerText = '-';
+    currentLat = null;
+    currentLng = null;
+    
+    statusBar.className = "status";
+    statusBar.innerText = "Punkt gespeichert! Bereit für nächsten Punkt.";
+});
+
+exportBtn.addEventListener('click', function() {
+    if (savedPoints.length === 0) {
+        alert("Keine Punkte zum Exportieren vorhanden!");
+        return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,Zeit,Breitengrad(Lat),Laengengrad(Lng),Wassertiefe(m)\n";
+    savedPoints.forEach(p => {
+        csvContent += `${p.time},${p.lat},${p.lng},${p.depth}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "gewaesser_karte_export.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
+
+clearBtn.addEventListener('click', function() {
+    if (confirm("Möchtest du wirklich ALLE gespeicherten Punkte unwiderruflich löschen?")) {
+        savedPoints = [];
+        localStorage.removeItem('fishMapPoints');
+        updateTable();
+        statusBar.className = "status";
+        statusBar.innerText = "Alle Daten gelöscht.";
+    }
+});
+
+// Initialisierung beim Laden
+updateTable();
+</script>
+
 </body>
 </html>
