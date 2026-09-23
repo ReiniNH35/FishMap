@@ -6,7 +6,7 @@
     <title>Gewässer-Tracker & Karte</title>
     
     <!-- Leaflet CSS für die Karte -->
-    <link rel="stylesheet" href="https://unpkg.com" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 15px; background: #f0f2f5; color: #333; margin: 0; }
@@ -72,7 +72,7 @@
     <button id="saveBtn" class="btn-secondary" disabled>3. Punkt speichern</button>
 </div>
 
-<!-- NEU: Die Live-Gewässerkarte -->
+<!-- Die Live-Gewässerkarte -->
 <div class="card">
     <h3>🗺️ Deine Gewässerkarte</h3>
     <div id="map"></div>
@@ -101,7 +101,7 @@
 </div>
 
 <!-- Leaflet JavaScript für die Karte -->
-<script src="https://unpkg.com"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 let currentLat = null;
@@ -123,18 +123,14 @@ const countText = document.getElementById('countText');
 
 // Karte initialisieren
 function initMap() {
-    // Standardmäßig auf Mitte von Europa setzen, falls keine Punkte da sind
     map = L.map('map').setView([50.0, 10.0], 5);
     
-    // OpenStreetMap Kartenkacheln laden
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© OpenStreetMap'
     }).addTo(map);
     
     markerLayer = L.layerGroup().addTo(map);
-    
-    // Punkte auf Karte zeichnen
     updateMapMarkers();
 }
 
@@ -151,11 +147,10 @@ function updateMapMarkers() {
         const pos = [p.lat, p.lng];
         latLngs.push(pos);
         
-        // Erstellt eine Stecknadel mit einem permanenten Text-Label (Wassertiefe)
         L.marker(pos)
             .addTo(markerLayer)
-            .bindPopup(`<b>Zeit:</b> ${p.time}<br><b>Tiefe:</b> ${p.depth}m`)
-            .bindTooltip(`${p.depth}m`, {
+            .bindPopup(`<b>Zeit:</b> \${p.time}<br><b>Tiefe:</b> \${p.depth}m`)
+            .bindTooltip(`\${p.depth}m`, {
                 permanent: true, 
                 direction: 'top',
                 className: 'depth-label',
@@ -163,9 +158,8 @@ function updateMapMarkers() {
             });
     });
     
-    // Karte automatisch so zoomen/verschieben, dass man alle Punkte sieht
     const bounds = L.latLngBounds(latLngs);
-    map.fitBounds(bounds, { padding: [30, 30] });
+    map.fitBounds(bounds, { padding: [20, 20] });
 }
 
 function updateTable() {
@@ -204,9 +198,7 @@ gpsBtn.addEventListener('click', function() {
             statusBar.innerText = "Position erfolgreich erfasst!";
             saveBtn.disabled = false;
             
-            // Karte temporär auf aktuelle Position zentrieren
             map.setView([currentLat, currentLng], 16);
-            
             depthInput.focus();
         },
         function(error) {
@@ -242,7 +234,7 @@ saveBtn.addEventListener('click', function() {
     localStorage.setItem('fishMapPoints', JSON.stringify(savedPoints));
     
     updateTable();
-    updateMapMarkers(); // Karte aktualisieren
+    updateMapMarkers();
     
     depthInput.value = '';
     saveBtn.disabled = true;
@@ -263,7 +255,32 @@ exportBtn.addEventListener('click', function() {
         return;
     }
     let csvContent = "data:text/csv;charset=utf-8,Zeit,Breitengrad(Lat),Laengengrad(Lng),Wassertiefe(m)\n";
-    savedPoints.forEach(p => { csvContent += `${p.time},${p.lat},${p.lng},${p.depth}\n`; });
+    savedPoints.forEach(p => { csvContent += `\${p.time},\${p.lat},\${p.lng},\${p.depth}\n`; });
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "gewaesser_karte_export.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
+
+// Alle löschen
+clearBtn.addEventListener('click', function() {
+    if (confirm("Wirklich ALLE Punkte löschen?")) {
+        savedPoints = [];
+        localStorage.removeItem('fishMapPoints');
+        updateTable();
+        updateMapMarkers();
+        statusBar.className = "status";
+        statusBar.innerText = "Alle Daten gelöscht.";
+    }
+});
+
+// App-Start
+initMap();
+updateTable();
+</script>
+
+</body>
+</html>
