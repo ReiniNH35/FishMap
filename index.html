@@ -120,7 +120,7 @@ function updateMapMarkers() {
     });
     
     const bounds = L.latLngBounds(latLngs);
-    map.fitBounds(bounds, { padding: [20, 20] });
+    map.fitBounds(bounds, { padding: [30, 30] });
 }
 
 function updateTable() {
@@ -180,7 +180,7 @@ saveBtn.addEventListener('click', function() {
     localStorage.setItem('fishMapPoints', JSON.stringify(savedPoints));
     
     updateTable();
-    updateMapMarkers(); // Aktualisiert die Karte ab jetzt SOFORT beim Speichern!
+    updateMapMarkers();
     
     depthInput.value = '';
     saveBtn.disabled = true;
