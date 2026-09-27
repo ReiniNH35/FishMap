@@ -12,7 +12,6 @@
         h1 { margin-top: 0; color: #007aff; font-size: 24px; text-align: center; }
         button { background: #007aff; color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
         button:active { background: #0056b3; }
-        button:disabled { background: #cccccc; cursor: not-allowed; }
         .btn-secondary { background: #34c759; }
         .btn-secondary:active { background: #248a3d; }
         .btn-danger { background: #ff3b30; }
@@ -23,7 +22,6 @@
         .status { padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: bold; background: #e5e5ea; display: none; }
         .error { background: #ffdee2; color: #ff3b30; border: 1px solid #ff3b30; display: block; }
         .success { background: #e3ffd9; color: #34c759; border: 1px solid #34c759; display: block; }
-        .info { background: #def1ff; color: #007aff; border: 1px solid #007aff; display: block; }
         #map { height: 350px; width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid #ccc; z-index: 1; }
         .depth-label { background: rgba(0, 122, 255, 0.9); color: white; border: 1px solid white; border-radius: 4px; padding: 2px 5px; font-size: 11px; font-weight: bold; text-align: center; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
@@ -31,8 +29,7 @@
         th { background-color: #f8f9fa; }
         .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; width: 100%; }
         .file-input-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
-        .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: normal; margin-top: 4px; }
-        .badge-gps { background: #e1f5fe; color: #0288d1; border: 1px solid #b3e5fc; }
+        .badge { background: #e5e5ea; color: #333; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: normal; }
     </style>
 </head>
 <body>
@@ -41,17 +38,17 @@
         <h1>Gewässer-Tracker</h1>
         <div id="statusBox" class="status"></div>
         
-        <label for="accuracySelect"><strong>Gewünschte GPS-Genauigkeit (Filter):</strong></label>
-        <select id="accuracySelect">
-            <option value="5">Sehr hoch (unter 5 Meter)</option>
-            <option value="10" selected>Hoch (unter 10 Meter)</option>
-            <option value="20">Mittel (unter 20 Meter)</option>
-            <option value="999">Jede Genauigkeit zulassen</option>
-        </select>
-
         <label for="depthInput"><strong>Wassertiefe (Meter):</strong></label>
         <input type="number" id="depthInput" step="0.1" placeholder="z.B. 4.5" pattern="[0-9]*" inputmode="decimal">
         
+        <label for="accuracyFilter"><strong>Erforderliche GPS-Genauigkeit:</strong></label>
+        <select id="accuracyFilter">
+            <option value="5">Besser als 5 Meter (Sehr strikt)</option>
+            <option value="10" selected>Besser als 10 Meter (Empfohlen)</option>
+            <option value="20">Besser als 20 Meter (Locker)</option>
+            <option value="999">Jede Genauigkeit zulassen</option>
+        </select>
+
         <button id="trackBtn">📍 Position erfassen & Messung speichern</button>
         <button id="toggleLineBtn" class="btn-secondary">Start: Tiefenlinie zeichnen</button>
         
@@ -77,7 +74,7 @@
                 <tr>
                     <th>Zeit</th>
                     <th>Tiefe</th>
-                    <th>Details / Koordinaten</th>
+                    <th>Koordinaten (Genauigkeit)</th>
                 </tr>
             </thead>
             <tbody>
@@ -89,29 +86,27 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // App-Status & Speicherstrukturen
         let map, currentSessionPoints = [], allLines = [], allMarkers = [];
         let isDrawingLine = false;
         let activeLinePolyline = null;
 
-        // Karte initialisieren
+        // 1. Karte initialisieren
         map = L.map('map').setView([47.5, 14.5], 6);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '© OpenStreetMap'
+            attribution: '© OpenStreetMap-Mitwirkende'
         }).addTo(map);
 
-        // Versuchen, direkt den aktuellen Standort auf der Karte anzuzeigen
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(pos => {
                 map.setView([pos.coords.latitude, pos.coords.longitude], 16);
-            }, () => {}, { enableHighAccuracy: true });
+            }, null, { enableHighAccuracy: true });
         }
 
         // UI-Elemente
         const statusBox = document.getElementById('statusBox');
         const depthInput = document.getElementById('depthInput');
-        const accuracySelect = document.getElementById('accuracySelect');
+        const accuracyFilter = document.getElementById('accuracyFilter');
         const trackBtn = document.getElementById('trackBtn');
         const toggleLineBtn = document.getElementById('toggleLineBtn');
         const exportBtn = document.getElementById('exportBtn');
@@ -120,12 +115,12 @@
         const datatableBody = document.querySelector('#datatable tbody');
 
         function showStatus(text, type) {
+            statusBox.style.display = 'block';
             statusBox.className = `status ${type}`;
             statusBox.innerText = text;
             setTimeout(() => statusBox.style.display = 'none', 6000);
         }
 
-        // Lokale Daten laden und auf Karte zeichnen
         function loadSavedData() {
             const savedPoints = localStorage.getItem('water_tracker_points');
             const savedLines = localStorage.getItem('water_tracker_lines');
@@ -148,7 +143,6 @@
             localStorage.setItem('water_tracker_lines', JSON.stringify(allLines));
         }
 
-        // Punkt zur Karte und Tabelle hinzufügen
         function addPointToMapAndTable(pointData) {
             const marker = L.circleMarker([pointData.lat, pointData.lng], {
                 radius: 8,
@@ -158,8 +152,8 @@
                 fillOpacity: 0.8
             }).addTo(map);
             
-            const accText = pointData.accuracy ? `<br><small>GPS-Genauigkeit: +/- ${parseFloat(pointData.accuracy).toFixed(1)}m</small>` : '';
-            marker.bindPopup(`<b>Tiefe: ${pointData.depth} m</b><br><small>${pointData.time}</small>${accText}`);
+            const accText = pointData.acc ? ` (±${parseFloat(pointData.acc).toFixed(1)}m)` : '';
+            marker.bindPopup(`<b>Tiefe: ${pointData.depth} m</b><br><small>${pointData.time}${accText}</small>`);
             
             marker.bindTooltip(`${pointData.depth}m`, {
                 permanent: true,
@@ -176,13 +170,13 @@
                 <td><strong>${pointData.depth} m</strong></td>
                 <td>
                     <small>${pointData.lat.toFixed(5)}, ${pointData.lng.toFixed(5)}</small>
-                    ${pointData.accuracy ? `<br><span class="badge badge-gps">± ${parseFloat(pointData.accuracy).toFixed(1)}m</span>` : ''}
+                    <span class="badge">±${parseFloat(pointData.acc || 0).toFixed(1)}m</span>
                 </td>
             `;
             datatableBody.insertBefore(row, datatableBody.firstChild);
         }
 
-        // Präzise GPS-Erfassung mit Genauigkeitsfilter (Kein manueller Klick mehr auf die Karte)
+        // GPS-Erfassung
         trackBtn.addEventListener('click', () => {
             const depth = depthInput.value;
             if (!depth) {
@@ -196,27 +190,25 @@
             }
 
             trackBtn.disabled = true;
-            trackBtn.innerText = '📡 Ermittle präzise Position...';
-            showStatus('Warte auf präzises GPS-Signal (High Accuracy wird erzwungen)...', 'info');
-
-            const maxAllowedAccuracy = parseFloat(accuracySelect.value);
+            trackBtn.innerText = '📡 Signal wird präzisiert...';
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
-                    const accuracy = position.coords.accuracy;
-                    const timestamp = new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    const acc = position.coords.accuracy;
+                    const maxAllowedAcc = parseFloat(accuracyFilter.value);
 
-                    // Überprüfung des Genauigkeitsfilters
-                    if (accuracy > maxAllowedAccuracy) {
+                    if (acc > maxAllowedAcc) {
                         trackBtn.disabled = false;
                         trackBtn.innerText = '📍 Position erfassen & Messung speichern';
-                        showStatus(`⚠️ Signal zu ungenau (+/- ${accuracy.toFixed(1)}m). Erforderlich: < ${maxAllowedAccuracy}m. Bitte kurz warten oder Filter anpassen.`, 'error');
+                        showStatus(`❌ GPS-Signal zu ungenau (±${acc.toFixed(1)}m). Erforderlich: <${maxAllowedAcc}m. Bitte warte kurz oder ändere den Filter.`, 'error');
                         return;
                     }
 
-                    const newPoint = { lat, lng, depth, time: timestamp, accuracy: accuracy };
+                    const timestamp = new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    const newPoint = { lat, lng, depth, time: timestamp, acc: acc };
+                    
                     currentSessionPoints.push(newPoint);
                     
                     if (isDrawingLine && activeLinePolyline) {
@@ -228,26 +220,22 @@
                     saveData();
                     
                     map.setView([lat, lng], 17);
-                    depthInput.value = ''; // Input zurücksetzen
+                    depthInput.value = '';
                     
                     trackBtn.disabled = false;
                     trackBtn.innerText = '📍 Position erfassen & Messung speichern';
-                    showStatus(`✅ Gespeichert! Genauigkeit: +/- ${accuracy.toFixed(1)} Meter.`, 'success');
+                    showStatus(`✅ Gespeichert! GPS-Genauigkeit: ±${acc.toFixed(1)} Meter.`, 'success');
                 },
                 (error) => {
                     trackBtn.disabled = false;
                     trackBtn.innerText = '📍 Position erfassen & Messung speichern';
                     showStatus('❌ GPS-Fehler: ' + error.message, 'error');
                 },
-                { 
-                    enableHighAccuracy: true, 
-                    timeout: 12000, 
-                    maximumAge: 0 
-                }
+                { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
             );
         });
 
-        // Linien-Modus (Track zeichnen)
+        // Linien-Modus
         toggleLineBtn.addEventListener('click', () => {
             if (!isDrawingLine) {
                 isDrawingLine = true;
@@ -260,30 +248,47 @@
                 });
                 
                 activeLinePolyline = L.polyline([], {color: '#ff3b30', weight: 4}).addTo(map);
-                showStatus('⚡ Linienaufzeichnung gestartet! Jeder neue GPS-Messpunkt wird verbunden.', 'success');
+                showStatus('⚡ Linienaufzeichnung aktiv. Jeder neue GPS-Punkt wird verbunden.', 'success');
             } else {
                 isDrawingLine = false;
                 toggleLineBtn.innerText = 'Start: Tiefenlinie zeichnen';
                 toggleLineBtn.className = 'btn-secondary';
                 activeLinePolyline = null;
                 saveData();
-                showStatus('💾 Tiefenlinie sicher gespeichert.', 'success');
+                showStatus('💾 Tiefenlinie sicher im Speicher abgelegt.', 'success');
             }
         });
 
-        // Daten-Export (JSON)
+        // Robuster Blob-Export
         exportBtn.addEventListener('click', () => {
-            const exportData = { points: currentSessionPoints, lines: allLines };
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `gewaesser_track_${new Date().toISOString().slice(0,10)}.json`);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
+            try {
+                const exportData = {
+                    points: currentSessionPoints,
+                    lines: allLines
+                };
+                const jsonString = JSON.stringify(exportData, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.href = url;
+                downloadAnchor.download = `gewaesser_track_${new Date().toISOString().slice(0,10)}.json`;
+                
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(downloadAnchor);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                showStatus('📥 Daten-Download gestartet!', 'success');
+            } catch (err) {
+                showStatus('❌ Fehler beim Exportieren der Daten: ' + err.message, 'error');
+            }
         });
 
-        // Daten-Import (JSON)
+        // Import
         importInput.addEventListener('change', (e) => {
             const fileReader = new FileReader();
             fileReader.onload = function(event) {
@@ -306,19 +311,17 @@
                     showStatus('❌ Fehler beim Lesen der Datei.', 'error');
                 }
             };
-            if(e.target.files) fileReader.readAsText(e.target.files);
+            if(e.target.files.length > 0) fileReader.readAsText(e.target.files[0]);
         });
 
-        // Daten löschen
+        // Löschen
         clearBtn.addEventListener('click', () => {
             if (confirm('Möchtest du wirklich alle aufgezeichneten Daten unwiderruflich löschen?')) {
-                localStorage.removeItem('water_tracker_points');
-                localStorage.removeItem('water_tracker_lines');
+                localStorage.clear();
                 location.reload();
             }
         });
 
-        // App-Initialisierung beim Start
         loadSavedData();
     </script>
 </body>
