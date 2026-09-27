@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gewässer-Tracker</title>
-    <!-- Leaflet CSS über unpkg CDN -->
+    <title>Gewässer-Tracker (Manueller & GPS Modus)</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f0f2f5; color: #333; margin: 0; }
@@ -16,235 +16,301 @@
         .btn-secondary:active { background: #248a3d; }
         .btn-danger { background: #ff3b30; }
         .btn-danger:active { background: #c61a09; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn-group button { flex: 1; }
         input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 15px; }
-        .status { padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: bold; background: #e5e5ea; }
-        .error { background: #ffdee2; color: #ff3b30; border: 1px solid #ff3b30; }
-        .success { background: #e3ffd9; color: #34c759; border: 1px solid #34c759; }
-        
-        /* Karten-Container mit fester CSS-Höhe */
-        #map { height: 350px; width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid #ccc; z-index: 1; }
-        
+        .status { padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: bold; background: #e5e5ea; display: none; }
+        .error { background: #ffdee2; color: #ff3b30; border: 1px solid #ff3b30; display: block; }
+        .success { background: #e3ffd9; color: #34c759; border: 1px solid #34c759; display: block; }
+        .info { background: #e8f4fd; color: #007aff; border: 1px solid #007aff; display: block; font-weight: normal; font-size: 14px; text-align: left; }
+        #map { height: 400px; width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid #ccc; z-index: 1; cursor: crosshair; }
         .depth-label { background: rgba(0, 122, 255, 0.9); color: white; border: 1px solid white; border-radius: 4px; padding: 2px 5px; font-size: 11px; font-weight: bold; text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
-        th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
-        th { background: #f2f2f7; font-weight: 600; }
-        .flex-buttons { display: flex; gap: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
+        th { background-color: #f8f9fa; }
+        .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; width: 100%; }
+        .file-input-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h1>📍 Gewässer-Tracker</h1>
-    <div id="statusBar" class="status">Bereit zum Erfassen</div>
-    <button id="gpsBtn">1. GPS-Position erfassen</button>
-    <div style="margin: 15px 0; line-height: 1.6; font-size: 14px;">
-        <strong>Breitengrad (Lat):</strong> <span id="latText">-</span> | 
-        <strong>Längengrad (Lng):</strong> <span id="lngText">-</span><br>
-        <strong>Genauigkeit:</strong> <span id="accText">-</span>
+    <div class="card">
+        <h1>Gewässer-Tracker</h1>
+        <div id="statusBox" class="status"></div>
+        
+        <div class="status info">
+            <strong>💡 Tipp bei ungenauem GPS:</strong> Gib die Wassertiefe ein und <strong>klicke direkt auf die Karte</strong>, um einen Punkt exakt manuell zu platzieren!
+        </div>
+        
+        <label for="depthInput"><strong>Wassertiefe (Meter):</strong></label>
+        <input type="number" id="depthInput" step="0.1" placeholder="z.B. 4.5" pattern="[0-9]*" inputmode="decimal">
+        
+        <button id="trackBtn">📍 Über GPS erfassen</button>
+        <button id="toggleLineBtn" class="btn-secondary">Start: Tiefenlinie zeichnen</button>
+        
+        <div id="map"></div>
     </div>
-    <label for="depthInput"><strong>2. Wassertiefe (in Metern):</strong></label>
-    <input type="number" id="depthInput" step="0.1" placeholder="z.B. 4.5" pattern="[0-9]*" inputmode="decimal">
-    <button id="saveBtn" class="btn-secondary" disabled>3. Punkt speichern</button>
-</div>
 
-<div class="card">
-    <h3>🗺️ Deine Gewässerkarte</h3>
-    <div id="map"></div>
-</div>
-
-<div class="card">
-    <h3>Gespeicherte Punkte (<span id="countText">0</span>)</h3>
-    <div class="flex-buttons">
-        <button id="exportBtn" style="background: #5856d6;">📊 Als CSV exportieren</button>
-        <button id="clearBtn" class="btn-danger">⚠️ Alle löschen</button>
+    <div class="card">
+        <h3>Datenverwaltung</h3>
+        <div class="btn-group">
+            <button id="exportBtn" class="btn-secondary">📥 Daten exportieren</button>
+            <div class="file-input-wrapper">
+                <button class="btn-secondary" style="width: 100%;">📤 Daten importieren</button>
+                <input type="file" id="importInput" accept=".json">
+            </div>
+        </div>
+        <button id="clearBtn" class="btn-danger">🗑️ Alle Daten löschen</button>
     </div>
-    <div style="overflow-x:auto;">
-        <table id="pointsTable">
+
+    <div class="card" style="overflow-x: auto;">
+        <h3>Gespeicherte Messpunkte</h3>
+        <table id="datatable">
             <thead>
                 <tr>
                     <th>Zeit</th>
-                    <th>Lat</th>
-                    <th>Lng</th>
                     <th>Tiefe</th>
+                    <th>Koordinaten</th>
                 </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+                <!-- Dynamische Einträge -->
+            </tbody>
         </table>
     </div>
-</div>
 
-<!-- Leaflet JavaScript Bibliothek -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-var currentLat = null;
-var currentLng = null;
-var savedPoints = JSON.parse(localStorage.getItem('fishMapPoints')) || [];
-var map = null;
-var markerLayer = null;
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // App-Status & Speicherstrukturen
+        let map, currentSessionPoints = [], allLines = [], allMarkers = [];
+        let isDrawingLine = false;
+        let activeLinePolyline = null;
 
-var statusBar = document.getElementById('statusBar');
-var latText = document.getElementById('latText');
-var lngText = document.getElementById('lngText');
-var accText = document.getElementById('accText');
-var depthInput = document.getElementById('depthInput');
-var gpsBtn = document.getElementById('gpsBtn');
-var saveBtn = document.getElementById('saveBtn');
-var exportBtn = document.getElementById('exportBtn');
-var clearBtn = document.getElementById('clearBtn');
-var pointsTable = document.getElementById('pointsTable').getElementsByTagName('tbody');
-var countText = document.getElementById('countText');
-
-// Einfache, fehlerfreie Initialisierung
-function initMap() {
-    try {
-        map = L.map('map').setView([47.5, 13.5], 6); // Zentriert auf Österreich/Mitteleuropa
+        // 1. Karte initialisieren
+        map = L.map('map').setView([47.5, 14.5], 6);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '© OpenStreetMap'
+            attribution: '© OpenStreetMap-Mitwirkende'
         }).addTo(map);
-        
-        markerLayer = L.layerGroup().addTo(map);
-        updateMapMarkers();
-    } catch (e) {
-        alert("Karten-Fehler: " + e.message);
-    }
-}
 
-function updateMapMarkers() {
-    if (!map || !markerLayer) return;
-    markerLayer.clearLayers();
-    
-    if (savedPoints.length === 0) return;
-    
-    var lastPos = null;
-    
-    savedPoints.forEach(function(p) {
-        lastPos = [p.lat, p.lng];
-        L.marker(lastPos)
-            .addTo(markerLayer)
-            .bindPopup('<b>Zeit:</b> ' + p.time + '<br><b>Tiefe:</b> ' + p.depth + 'm')
-            .bindTooltip(p.depth + 'm', {
-                permanent: true, 
-                direction: 'top',
-                offset: [0, -10]
-            });
-    });
-    
-    // Setzt den Kartenausschnitt ausfallsicher auf die Position des zuletzt gesetzten Punktes
-    if (lastPos !== null) {
-        map.setView(lastPos, 16);
-    }
-}
+        // Standardmäßig GPS-Standort abfragen, um Karte zu zentrieren
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+            }, () => {}, { enableHighAccuracy: true });
+        }
 
-function updateTable() {
-    pointsTable.innerHTML = '';
-    countText.innerText = savedPoints.length;
-    savedPoints.forEach(function(p) {
-        var row = pointsTable.insertRow(0);
-        row.insertCell(0).innerText = p.time;
-        row.insertCell(1).innerText = p.lat.toFixed(5);
-        row.insertCell(2).innerText = p.lng.toFixed(5);
-        row.insertCell(3).innerText = p.depth + 'm';
-    });
-}
+        // 2. UI-Elemente
+        const statusBox = document.getElementById('statusBox');
+        const depthInput = document.getElementById('depthInput');
+        const trackBtn = document.getElementById('trackBtn');
+        const toggleLineBtn = document.getElementById('toggleLineBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const importInput = document.getElementById('importInput');
+        const clearBtn = document.getElementById('clearBtn');
+        const datatableBody = document.querySelector('#datatable tbody');
 
-gpsBtn.addEventListener('click', function() {
-    statusBar.className = "status";
-    statusBar.innerText = "Suche Satelliten...";
-    
-    if (!navigator.geolocation) {
-        statusBar.className = "status error";
-        statusBar.innerText = "GPS nicht unterstützt!";
-        return;
-    }
-    
-    navigator.geolocation.getCurrentPosition(
-        function(position) {
-            currentLat = position.coords.latitude;
-            currentLng = position.coords.longitude;
-            latText.innerText = currentLat.toFixed(5);
-            lngText.innerText = currentLng.toFixed(5);
-            accText.innerText = "+/- " + Math.round(position.coords.accuracy) + " Meter";
-            statusBar.className = "status success";
-            statusBar.innerText = "Position erfasst!";
-            saveBtn.disabled = false;
+        function showStatus(text, type) {
+            statusBox.className = `status ${type}`;
+            statusBox.innerText = text;
+            statusBox.style.display = 'block';
+            setTimeout(() => statusBox.style.display = 'none', 5000);
+        }
+
+        // 3. Lokale Daten laden
+        function loadSavedData() {
+            const savedPoints = localStorage.getItem('water_tracker_points');
+            const savedLines = localStorage.getItem('water_tracker_lines');
             
-            if (map) {
-                map.setView([currentLat, currentLng], 16);
+            if (savedPoints) {
+                currentSessionPoints = JSON.parse(savedPoints);
+                currentSessionPoints.forEach(p => addPointToMapAndTable(p));
             }
-            depthInput.focus();
-        },
-        function(error) {
-            statusBar.className = "status error";
-            statusBar.innerText = "Fehler: " + error.message;
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-});
+            if (savedLines) {
+                allLines = JSON.parse(savedLines);
+                allLines.forEach(line => {
+                    L.polyline(line.coords, {color: '#ff3b30', weight: 4}).addTo(map)
+                     .bindPopup(`Tiefenlinie erfasst am: ${line.timestamp}`);
+                });
+            }
+        }
 
-saveBtn.addEventListener('click', function() {
-    var depth = depthInput.value.trim();
-    if (!depth || isNaN(depth)) {
-        alert("Bitte eine gültige Wassertiefe eintragen!");
-        return;
-    }
-    
-    var now = new Date();
-    var timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-    var point = { time: timeStr, lat: currentLat, lng: currentLng, depth: depth };
-    
-    savedPoints.push(point);
-    localStorage.setItem('fishMapPoints', JSON.stringify(savedPoints));
-    
-    updateTable();
-    
-    // Karte aufwecken und sofort synchronisieren (Live-Refresh)
-    if (map) {
-        map.invalidateSize();
-    }
-    updateMapMarkers();
-    
-    depthInput.value = '';
-    saveBtn.disabled = true;
-    latText.innerText = '-';
-    lngText.innerText = '-';
-    accText.innerText = '-';
-    currentLat = null;
-    currentLng = null;
-    statusBar.className = "status";
-    statusBar.innerText = "Punkt gespeichert!";
-});
+        function saveData() {
+            localStorage.setItem('water_tracker_points', JSON.stringify(currentSessionPoints));
+            localStorage.setItem('water_tracker_lines', JSON.stringify(allLines));
+        }
 
-exportBtn.addEventListener('click', function() {
-    if (savedPoints.length === 0) {
-        alert("Keine Punkte zum Exportieren!");
-        return;
-    }
-    var csvContent = "data:text/csv;charset=utf-8,Zeit,Lat,Lng,Tiefe(m)\n";
-    savedPoints.forEach(function(p) { csvContent += p.time + "," + p.lat + "," + p.lng + "," + p.depth + "\n"; });
-    var encodedUri = encodeURI(csvContent);
-    var link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "gewaesser_karte.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-});
+        // 4. Punkt zur Karte & Tabelle hinzufügen
+        function addPointToMapAndTable(pointData) {
+            const marker = L.circleMarker([pointData.lat, pointData.lng], {
+                radius: 8,
+                fillColor: '#007aff',
+                color: '#fff',
+                weight: 2,
+                fillOpacity: 0.8
+            }).addTo(map);
+            
+            marker.bindPopup(`<b>Tiefe: ${pointData.depth} m</b><br><small>${pointData.time}</small>`);
+            
+            marker.bindTooltip(`${pointData.depth}m`, {
+                permanent: true,
+                direction: 'top',
+                className: 'depth-label',
+                offset: [0, -5]
+            });
 
-clearBtn.addEventListener('click', function() {
-    if (confirm("Wirklich alle Punkte löschen?")) {
-        savedPoints = [];
-        localStorage.removeItem('fishMapPoints');
-        updateTable();
-        updateMapMarkers();
-        statusBar.className = "status";
-        statusBar.innerText = "Daten gelöscht.";
-    }
-});
+            allMarkers.push(marker);
 
-// App-Start
-initMap();
-updateTable();
-</script>
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${pointData.time}</td>
+                <td><strong>${pointData.depth} m</strong></td>
+                <td><small>${pointData.lat.toFixed(5)}, ${pointData.lng.toFixed(5)}</small></td>
+            `;
+            datatableBody.insertBefore(row, datatableBody.firstChild);
+        }
+
+        // Hilfsfunktion zum Verarbeiten eines neuen Punktes
+        function processNewPoint(lat, lng, depth) {
+            const timestamp = new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            const newPoint = { lat, lng, depth, time: timestamp };
+            
+            currentSessionPoints.push(newPoint);
+            
+            if (isDrawingLine && activeLinePolyline) {
+                activeLinePolyline.addLatLng([lat, lng]);
+                allLines[allLines.length - 1].coords.push([lat, lng]);
+            }
+
+            addPointToMapAndTable(newPoint);
+            saveData();
+            depthInput.value = '';
+        }
+
+        // 5. Manueller Klick-Modus auf der Karte (Lösung für ungenaues GPS)
+        map.on('click', function(e) {
+            const depth = depthInput.value;
+            if (!depth) {
+                showStatus('⚠️ Bitte gib zuerst eine Wassertiefe ein und klicke dann auf die Karte!', 'error');
+                return;
+            }
+            
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            
+            processNewPoint(lat, lng, depth);
+            showStatus('✅ Punkt manuell auf Karte gesetzt!', 'success');
+        });
+
+        // 6. GPS-Erfassung (optimiert mit HighAccuracy)
+        trackBtn.addEventListener('click', () => {
+            const depth = depthInput.value;
+            if (!depth) {
+                showStatus('⚠️ Bitte gib zuerst eine Wassertiefe ein!', 'error');
+                return;
+            }
+
+            if (!navigator.geolocation) {
+                showStatus('❌ GPS wird nicht unterstützt.', 'error');
+                return;
+            }
+
+            trackBtn.disabled = true;
+            trackBtn.innerText = '📡 Signal wird maximiert...';
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const acc = position.coords.accuracy;
+
+                    processNewPoint(lat, lng, depth);
+                    map.setView([lat, lng], 17);
+                    
+                    trackBtn.disabled = false;
+                    trackBtn.innerText = '📍 Über GPS erfassen';
+                    showStatus(`✅ GPS-Punkt gesetzt! (Genauigkeit: +/- ${Math.round(acc)}m)`, 'success');
+                },
+                (error) => {
+                    trackBtn.disabled = false;
+                    trackBtn.innerText = '📍 Über GPS erfassen';
+                    showStatus('❌ GPS-Fehler: ' + error.message + ' - Nutze den Klick auf die Karte!', 'error');
+                },
+                { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+            );
+        });
+
+        // 7. Linien-Modus
+        toggleLineBtn.addEventListener('click', () => {
+            if (!isDrawingLine) {
+                isDrawingLine = true;
+                toggleLineBtn.innerText = '⏹️ Tiefenlinie beenden & speichern';
+                toggleLineBtn.className = 'btn-danger';
+                
+                allLines.push({
+                    timestamp: new Date().toLocaleString('de-DE'),
+                    coords: []
+                });
+                
+                activeLinePolyline = L.polyline([], {color: '#ff3b30', weight: 4}).addTo(map);
+                showStatus('⚡ Linienaufzeichnung aktiv! Klicke auf die Karte oder nutze GPS zum Erweitern.', 'success');
+            } else {
+                isDrawingLine = false;
+                toggleLineBtn.innerText = 'Start: Tiefenlinie zeichnen';
+                toggleLineBtn.className = 'btn-secondary';
+                activeLinePolyline = null;
+                saveData();
+                showStatus('💾 Tiefenlinie sicher gespeichert.', 'success');
+            }
+        });
+
+        // 8. Daten-Export
+        exportBtn.addEventListener('click', () => {
+            const exportData = { points: currentSessionPoints, lines: allLines };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `gewaesser_track_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        });
+
+        // 9. Daten-Import
+        importInput.addEventListener('change', (e) => {
+            const fileReader = new FileReader();
+            fileReader.onload = function(event) {
+                try {
+                    const parsed = JSON.parse(event.target.result);
+                    if (parsed.points || parsed.lines) {
+                        currentSessionPoints = parsed.points || [];
+                        allLines = parsed.lines || [];
+                        saveData();
+                        
+                        allMarkers.forEach(m => map.removeLayer(m));
+                        datatableBody.innerHTML = '';
+                        loadSavedData();
+                        
+                        showStatus('📥 Daten erfolgreich importiert!', 'success');
+                    }
+                } catch (err) {
+                    showStatus('❌ Fehler beim Importieren.', 'error');
+                }
+            };
+            if(e.target.files) fileReader.readAsText(e.target.files);
+        });
+
+        // 10. Daten löschen
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Wirklich alle Daten löschen?')) {
+                localStorage.removeItem('water_tracker_points');
+                localStorage.removeItem('water_tracker_lines');
+                location.reload();
+            }
+        });
+
+        loadSavedData();
+    </script>
 </body>
 </html>
